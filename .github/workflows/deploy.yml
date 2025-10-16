@@ -45,39 +45,30 @@ jobs:
           php artisan route:cache
           php artisan view:cache
 
-      # 7) Deploy incremental via LFTP (Laravel core)
-      - name: Deploy Laravel app files (Incremental)
-        uses: appleboy/lftp-action@v0.1.0
+      # 7) Deploy incremental via FTP do Laravel core (laravel_app)
+      - name: Deploy Laravel app incremental
+        uses: SamKirkland/FTP-Deploy-Action@v4
         with:
-          host: ${{ secrets.FTP_HOST }}
-          user: ${{ secrets.FTP_USER }}
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
-          script: |
-            # Desativa SSL/TLS se for FTP puro
-            set ftp:ssl-allow no
-            cd $GITHUB_WORKSPACE
+          local-dir: ./
+          server-dir: /laravel_app/
+          exclude: |
+            public/**
+            node_modules/**
+            .git/**
+            .github/**
+            .env
+            tests/**
+            storage/**
 
-            # Sincroniza o Laravel core incrementalmente
-            mirror --reverse --delete --verbose \
-              --exclude-glob ".git*" \
-              --exclude-glob ".github*" \
-              --exclude-glob "node_modules/" \
-              --exclude-glob "public/" \
-              --exclude-glob ".env" \
-              --exclude-glob "tests/" \
-              --exclude-glob "storage/" \
-              ./ /laravel_app
-
-      # 8) Deploy incremental via LFTP (pasta public)
-      - name: Deploy public folder (Incremental)
-        uses: appleboy/lftp-action@v0.1.0
+      # 8) Deploy incremental via FTP da pasta public (public_html)
+      - name: Deploy public folder incremental
+        uses: SamKirkland/FTP-Deploy-Action@v4
         with:
-          host: ${{ secrets.FTP_HOST }}
-          user: ${{ secrets.FTP_USER }}
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
-          script: |
-            set ftp:ssl-allow no
-            cd $GITHUB_WORKSPACE
-
-            # Sincroniza apenas a pasta public
-            mirror --reverse --delete --verbose ./public/ /public_html/
+          local-dir: ./public/
+          server-dir: /public_html/
