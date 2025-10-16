@@ -1,4 +1,4 @@
-name: Deploy Laravel via FTP (Otimizado com LFTP)
+name: Deploy Laravel via FTP (Incremental)
 
 on:
   push:
@@ -10,47 +10,74 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Os primeiros passos continuam exatamente os mesmos
+      # 1) Baixa o código do repositório
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # 2) Configura PHP 8.3 com extensões necessárias
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.3 # Mantenha a versão correta do seu servidor
+          php-version: 8.3
           extensions: mbstring, bcmath, intl, pdo, tokenizer, xml, curl
           coverage: none
 
+      # 3) Instala dependências do Composer
       - name: Composer install
         run: composer install --no-dev --prefer-dist --optimize-autoloader
 
+      # 4) Configura Node.js
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
+      # 5) Instala dependências NPM e gera build
       - name: Build frontend assets
         run: |
           npm install
           npm run build
-      
+
+      # 6) Otimiza Laravel para produção
       - name: Optimize Laravel for Production
         run: |
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
 
-      # A MÁGICA ACONTECE AQUI! ESTE PASSO SUBSTITUI OS DOIS ENVIOS DE FTP ANTIGOS
-      - name: 🚀 Sincronizar arquivos com o servidor via LFTP
-        uses: appleboy/lftp-action@master
+      # 7) Deploy incremental via LFTP (Laravel core)
+      - name: Deploy Laravel app files (Incremental)
+        uses: appleboy/lftp-action@v0.1.0
         with:
-          host: ${{ secrets.HOST }}
-          user: ${{ secrets.USER }}
-          password: ${{ secrets.PASS }}
-          # Comandos LFTP para sincronizar os diretórios de forma inteligente
+          host: ${{ secrets.FTP_HOST }}
+          user: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
           script: |
-            # Sincroniza a pasta principal, excluindo o que não precisa ir
-            mirror --continue --reverse --delete --verbose --exclude-glob .git* --exclude-glob .github* --exclude-glob node_modules/ --exclude public/ ./ /laravel_app
-            
-            # Sincroniza APENAS a pasta public para dentro da public_html
-            mirror --continue --reverse --delete --verbose ./public/ /public_html
+            # Desativa SSL/TLS se for FTP puro
+            set ftp:ssl-allow no
+            cd $GITHUB_WORKSPACE
+
+            # Sincroniza o Laravel core incrementalmente
+            mirror --reverse --delete --verbose \
+              --exclude-glob ".git*" \
+              --exclude-glob ".github*" \
+              --exclude-glob "node_modules/" \
+              --exclude-glob "public/" \
+              --exclude-glob ".env" \
+              --exclude-glob "tests/" \
+              --exclude-glob "storage/" \
+              ./ /laravel_app
+
+      # 8) Deploy incremental via LFTP (pasta public)
+      - name: Deploy public folder (Incremental)
+        uses: appleboy/lftp-action@v0.1.0
+        with:
+          host: ${{ secrets.FTP_HOST }}
+          user: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          script: |
+            set ftp:ssl-allow no
+            cd $GITHUB_WORKSPACE
+
+            # Sincroniza apenas a pasta public
+            mirror --reverse --delete --verbose ./public/ /public_html/
