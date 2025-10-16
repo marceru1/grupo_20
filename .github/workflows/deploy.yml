@@ -1,69 +1,68 @@
-# Nome do nosso "robô" que aparecerá no GitHub
+# Nome do nosso "robô"
 name: Deploy Laravel via FTP para Locaweb
 
-# Gatilho: Diz quando o robô deve começar a trabalhar.
-# Neste caso, sempre que houver um 'push' (envio de código) para a branch 'main'.
+# Gatilho: rodar sempre que houver um 'push' na branch 'main'
 on:
   push:
     branches:
       - main
 
-# "jobs" define as tarefas que o robô vai executar.
 jobs:
+  # Define o trabalho que o robô vai fazer
   deploy:
-    # Nome da tarefa
     name: Deploy
-    # O robô usará um computador virtual com Ubuntu para fazer o trabalho.
     runs-on: ubuntu-latest
 
-    # "steps" é a lista de passos sequenciais que o robô deve seguir.
     steps:
-    # Passo 1: O robô começa baixando a versão mais recente do seu código.
+    # Passo 1: Baixar o seu código do GitHub para o ambiente do robô
     - name: 🚚 Baixando o código do repositório
       uses: actions/checkout@v2
 
-    # Passo 2: O robô instala e configura o PHP para poder usar o Composer.
+    # Passo 2: Configurando o PHP
     - name: 🐘 Configurando o PHP
       uses: shivammathur/setup-php@v2
       with:
-        # PONTO DE ATENÇÃO: Verifique no painel da Locaweb qual a sua versão
-        # do PHP e coloque o número correto aqui (ex: '8.1', '8.2', etc).
-        php-version: '8.2' 
+        php-version: '8.2' # Lembre-se de usar a mesma versão da sua hospedagem
 
-    # Passo 3: O robô instala as dependências do Laravel.
+    # Passo 3: Instalando dependências do Composer
     - name: 📦 Instalando dependências do Composer
       run: composer install --optimize-autoloader --no-dev
 
-    # Passo 4: O robô instala o Node.js para poder compilar os assets.
+    # Passo 4: Configurando o Node.js
     - name: 🎨 Configurando o Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
 
-    # Passo 5: O robô instala os pacotes do NPM e compila os arquivos CSS e JS.
+    # Passo 5: Instalando dependências NPM e compilando os assets
     - name: 🔨 Instalando dependências NPM e compilando os assets
       run: |
         npm install
         npm run build
 
-    # Passo 6: O robô envia o "núcleo" do Laravel para a pasta correta no servidor.
+    # Passo 6: (NOVO!) Limpando arquivos desnecessários antes do deploy
+    # Como não podemos usar 'exclude', apagamos as pastas que não devem ir para o servidor.
+    - name: 🧹 Limpando arquivos antes do deploy
+      run: rm -rf .git .github node_modules
+
+    # Passo 7: ENVIAR O NÚCLEO DO PROJETO
+    # Agora ele envia tudo o que sobrou após a limpeza.
     - name: 🚀 Enviando arquivos principais para a pasta /laravel_app
       uses: locaweb/ftp-deploy@1.0.0
       with:
         host: ${{ secrets.HOST }} 
         user: ${{ secrets.USER }}
         password: ${{ secrets.PASS }}
-        localDir: "." # A origem é a pasta inteira do projeto.
-        remoteDir: "laravel_app" # O destino é a pasta 'laravel_app' no servidor.
-        # Excluímos o que não precisa ser enviado ou o que será enviado depois.
-        exclude: ".git, .github, node_modules, public"
+        localDir: "."
+        remoteDir: "laravel_app"
 
-    # Passo 7: O robô envia o conteúdo da pasta 'public' para a pasta 'public_html'.
+    # Passo 8: ENVIAR O CONTEÚDO DA PASTA PUBLIC
+    # Este passo continua o mesmo, pois já enviava o diretório correto.
     - name: 🚀 Enviando a pasta public para a pasta /public_html
       uses: locaweb/ftp-deploy@1.0.0
       with:
         host: ${{ secrets.HOST }} 
         user: ${{ secrets.USER }}
         password: ${{ secrets.PASS }}
-        localDir: "public" # A origem é apenas a pasta 'public'.
-        remoteDir: "public_html" # O destino é a pasta 'public_html' no servidor.
+        localDir: "public"
+        remoteDir: "public_html"
