@@ -65,7 +65,7 @@ jobs:
 
       # 8) Deploy incremental via FTP da pasta public (public_html)
       - name: Deploy public folder incremental
-        uses: SamKirkland/FTP-Deploy-Action@v4
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
