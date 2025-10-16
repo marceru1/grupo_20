@@ -1,6 +1,5 @@
-name: Deploy Laravel via FTP
+name: Deploy Laravel via FTP (Otimizado com LFTP)
 
-# Gatilo: sempre que houver push na branch main
 on:
   push:
     branches:
@@ -11,65 +10,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Baixa o código do repositório
+      # Os primeiros passos continuam exatamente os mesmos
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2) Configura PHP 8.3 com as extensões necessárias
-      - name: Setup PHP #(MODIFICADO!)
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.3
-          # Adiciona as extensões que o Laravel recomenda
+          php-version: 8.3 # Mantenha a versão correta do seu servidor
           extensions: mbstring, bcmath, intl, pdo, tokenizer, xml, curl
           coverage: none
 
-      # 3) Instala dependências do Composer
       - name: Composer install
         run: composer install --no-dev --prefer-dist --optimize-autoloader
 
-      # 4) Configura Node.js
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      # 5) Instala dependências NPM e gera build
       - name: Build frontend assets
         run: |
           npm install
           npm run build
-
-      # 6) (OPCIONAL, MAS RECOMENDADO!) Otimiza para produção
+      
       - name: Optimize Laravel for Production
         run: |
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
 
-      # 7) Deploy do restante do projeto (sem o .env)
-      - name: Deploy Laravel app files
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      # A MÁGICA ACONTECE AQUI! ESTE PASSO SUBSTITUI OS DOIS ENVIOS DE FTP ANTIGOS
+      - name: 🚀 Sincronizar arquivos com o servidor via LFTP
+        uses: appleboy/lftp-action@master
         with:
-          server: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
+          host: ${{ secrets.HOST }}
+          user: ${{ secrets.USER }}
           password: ${{ secrets.PASS }}
-          local-dir: ./
-          server-dir: /laravel_app/
-          # Exclui o que não é necessário para o deploy
-          exclude: |
-            public/**
-            node_modules/**
-            .git/**
-            .github/**
-            .env 
-
-      # 8) Deploy da pasta public para public_html
-      - name: Deploy public folder
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
-          password: ${{ secrets.PASS }}
-          local-dir: ./public/
-          server-dir: /public_html/
+          # Comandos LFTP para sincronizar os diretórios de forma inteligente
+          script: |
+            # Sincroniza a pasta principal, excluindo o que não precisa ir
+            mirror --continue --reverse --delete --verbose --exclude-glob .git* --exclude-glob .github* --exclude-glob node_modules/ --exclude public/ ./ /laravel_app
+            
+            # Sincroniza APENAS a pasta public para dentro da public_html
+            mirror --continue --reverse --delete --verbose ./public/ /public_html
