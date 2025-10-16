@@ -47,11 +47,11 @@ jobs:
 
       # 7) Deploy incremental via FTP do Laravel core (laravel_app)
       - name: Deploy Laravel app incremental
-        uses: SamKirkland/FTP-Deploy-Action@v4
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
+          server: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          password: ${{ secrets.PASS }}
           local-dir: ./
           server-dir: /laravel_app/
           exclude: |
@@ -68,7 +68,7 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@v4
         with:
           server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
+          username: ${{ secrets.USER }}
+          password: ${{ secrets.PASS }}
           local-dir: ./public/
           server-dir: /public_html/
