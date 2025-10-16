@@ -67,7 +67,7 @@ jobs:
       - name: Deploy public folder incremental
         uses: SamKirkland/FTP-Deploy-Action@v4
         with:
-          server: ${{ secrets.FTP_HOST }}
+          server: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           password: ${{ secrets.PASS }}
           local-dir: ./public/
