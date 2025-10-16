@@ -1,68 +1,75 @@
-# Nome do nosso "robô"
-name: Deploy Laravel via FTP para Locaweb
+name: Deploy Laravel via FTP
 
-# Gatilho: rodar sempre que houver um 'push' na branch 'main'
+# Gatilo: sempre que houver push na branch main
 on:
   push:
     branches:
       - main
 
 jobs:
-  # Define o trabalho que o robô vai fazer
   deploy:
-    name: Deploy
     runs-on: ubuntu-latest
 
     steps:
-    # Passo 1: Baixar o seu código do GitHub para o ambiente do robô
-    - name: 🚚 Baixando o código do repositório
-      uses: actions/checkout@v2
+      # 1) Baixa o código do repositório
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    # Passo 2: Configurando o PHP
-    - name: 🐘 Configurando o PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2' # Lembre-se de usar a mesma versão da sua hospedagem
+      # 2) Configura PHP 8.3 com as extensões necessárias
+      - name: Setup PHP #(MODIFICADO!)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+          # Adiciona as extensões que o Laravel recomenda
+          extensions: mbstring, bcmath, intl, pdo, tokenizer, xml, curl
+          coverage: none
 
-    # Passo 3: Instalando dependências do Composer
-    - name: 📦 Instalando dependências do Composer
-      run: composer install --optimize-autoloader --no-dev
+      # 3) Instala dependências do Composer
+      - name: Composer install
+        run: composer install --no-dev --prefer-dist --optimize-autoloader
 
-    # Passo 4: Configurando o Node.js
-    - name: 🎨 Configurando o Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
+      # 4) Configura Node.js
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-    # Passo 5: Instalando dependências NPM e compilando os assets
-    - name: 🔨 Instalando dependências NPM e compilando os assets
-      run: |
-        npm install
-        npm run build
+      # 5) Instala dependências NPM e gera build
+      - name: Build frontend assets
+        run: |
+          npm install
+          npm run build
 
-    # Passo 6: (NOVO!) Limpando arquivos desnecessários antes do deploy
-    # Como não podemos usar 'exclude', apagamos as pastas que não devem ir para o servidor.
-    - name: 🧹 Limpando arquivos antes do deploy
-      run: rm -rf .git .github node_modules
+      # 6) (OPCIONAL, MAS RECOMENDADO!) Otimiza para produção
+      - name: Optimize Laravel for Production
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
 
-    # Passo 7: ENVIAR O NÚCLEO DO PROJETO
-    # Agora ele envia tudo o que sobrou após a limpeza.
-    - name: 🚀 Enviando arquivos principais para a pasta /laravel_app
-      uses: locaweb/ftp-deploy@1.0.0
-      with:
-        host: ${{ secrets.HOST }} 
-        user: ${{ secrets.USER }}
-        password: ${{ secrets.PASS }}
-        localDir: "."
-        remoteDir: "laravel_app"
+      # 7) Deploy do restante do projeto (sem o .env)
+      - name: Deploy Laravel app files
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          password: ${{ secrets.PASS }}
+          local-dir: ./
+          server-dir: /laravel_app/
+          # Exclui o que não é necessário para o deploy
+          exclude: |
+            public/**
+            node_modules/**
+            .git/**
+            .github/**
+            .env 
 
-    # Passo 8: ENVIAR O CONTEÚDO DA PASTA PUBLIC
-    # Este passo continua o mesmo, pois já enviava o diretório correto.
-    - name: 🚀 Enviando a pasta public para a pasta /public_html
-      uses: locaweb/ftp-deploy@1.0.0
-      with:
-        host: ${{ secrets.HOST }} 
-        user: ${{ secrets.USER }}
-        password: ${{ secrets.PASS }}
-        localDir: "public"
-        remoteDir: "public_html"
+      # 8) Deploy da pasta public para public_html
+      - name: Deploy public folder
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          password: ${{ secrets.PASS }}
+          local-dir: ./public/
+          server-dir: /public_html/
