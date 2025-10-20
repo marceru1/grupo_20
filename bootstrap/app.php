@@ -15,4 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
-    })->create();
+    })
+    
+    // Esta é a linha que corrige o caminho do Vite
+    ->usePublicPath(dirname(dirname(__DIR__)) . '/public_html')
+
+    ->create();
